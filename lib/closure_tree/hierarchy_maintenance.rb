@@ -94,7 +94,18 @@ module ClosureTree
         # It shouldn't affect performance of postgresql.
         # See http://dev.mysql.com/doc/refman/5.0/en/subquery-errors.html
         # Also: PostgreSQL doesn't support INNER JOIN on DELETE, so we can't use that.
-        _ct.connection.execute <<-SQL.squish
+        if mysql?
+          _ct.connection.execute <<-SQL.squish
+            DELETE #{_ct.quoted_hierarchy_table_name} FROM #{_ct.quoted_hierarchy_table_name}
+              JOIN (
+                SELECT descendant_id FROM #{_ct.quoted_hierarchy_table_name}
+                WHERE ancestor_id = #{_ct.quote(id)}
+                    OR descendant_id = #{_ct.quote(id)}
+              ) #{_ct.t_alias_keyword} x
+              ON x.descendant_id = #{_ct.quoted_hierarchy_table_name}.descendant_id
+          SQL
+        else
+          _ct.connection.execute <<-SQL.squish
           DELETE FROM #{_ct.quoted_hierarchy_table_name}
           WHERE descendant_id IN (
             SELECT DISTINCT descendant_id
@@ -102,9 +113,22 @@ module ClosureTree
               FROM #{_ct.quoted_hierarchy_table_name}
               WHERE ancestor_id = #{_ct.quote(id)}
                  OR descendant_id = #{_ct.quote(id)}
-            ) #{ _ct.t_alias_keyword } x )
-        SQL
+            ) #{_ct.t_alias_keyword} x )
+          SQL
+        end
       end
+    end
+
+    def mysql?
+      env_db == :mysql2
+    end
+
+    def env_db
+      @env_db ||= if ActiveRecord::Base.respond_to?(:connection_db_config)
+        ActiveRecord::Base.connection_db_config.adapter
+      else
+        ActiveRecord::Base.connection_config[:adapter]
+      end.to_sym
     end
 
     module ClassMethods
