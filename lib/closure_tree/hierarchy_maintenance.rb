@@ -94,6 +94,8 @@ module ClosureTree
         # It shouldn't affect performance of postgresql.
         # See http://dev.mysql.com/doc/refman/5.0/en/subquery-errors.html
         # Also: PostgreSQL doesn't support INNER JOIN on DELETE, so we can't use that.
+
+        # This code is now MySQL specific and not intended to be upstreamed.
         _ct.connection.execute <<-SQL.squish
           DELETE #{_ct.quoted_hierarchy_table_name} FROM #{_ct.quoted_hierarchy_table_name}
             JOIN (
